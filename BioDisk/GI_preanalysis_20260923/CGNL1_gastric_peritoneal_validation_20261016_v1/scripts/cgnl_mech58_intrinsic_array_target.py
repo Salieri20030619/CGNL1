@@ -1,0 +1,20 @@
+from pathlib import Path
+import os
+os.environ.update(OPENBLAS_NUM_THREADS='2',OMP_NUM_THREADS='2')
+import json,datetime,io,hashlib
+import pandas as pd,numpy as np
+O=Path.cwd()/'mechanism_investigation_v2';spec={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'dataset':'GSE53276','target':'CGNL1','probe_selection':'allGPL570probeswhoseGeneSymbolcontainsCGNL1; distinguish unique frommultigeneannotation beforeoutcomes; nochoosebestprobe','contrasts':['60As6minusHSC-60','60As6LucminusHSC-60Luc'],'measure':'authorMAS5intensities, geometric/log2differenceand arithmeticmeanratio forpositivevalues','replication':'2arraysperline, oneparentalselectionlineage; Lucderivativesarenotindependentdonors','statistics':'descriptiveonly, no differential P/FDR; MAS5 detectionP is measurement detection, not differential effectP','purpose':'cell-intrinsicexpression association with selectedmetastaticphenotype, notCGNL1causalfunction','novelty':'2016DDR2paperusesdifferentcelllines; thisdatasetmustnotbecalledexactreplicationofthatpaper'}
+sp=O/'INTRINSIC_ARRAY_SPECIFICATION.json';assert not sp.exists();sp.write_text(json.dumps(spec,indent=2),encoding='utf-8')
+ls=(O/'metadata/GPL570_full.soft').read_bytes().decode('utf-8').splitlines();start=next(i for i,l in enumerate(ls) if l.strip()=='!platform_table_begin');end=next(i for i,l in enumerate(ls) if l.strip()=='!platform_table_end');a=pd.read_csv(io.StringIO('\n'.join(ls[start+1:end])),sep='\t',dtype=str,keep_default_na=False);assert 'Gene Symbol' in a.columns
+hit=a[a['Gene Symbol'].map(lambda s:'CGNL1' in [x.strip() for x in s.split('///')])].copy();assert len(hit)>0;hit['unique_CGNL1']=hit['Gene Symbol'].eq('CGNL1');hit.to_csv(O/'metadata/CGNL1_GPL570_probe_annotation.tsv',sep='\t',index=False,encoding='utf-8');print('PROBES',hit[['ID','Gene Symbol','unique_CGNL1']].to_string(index=False))
+s=(O/'metadata/GSE53276_samples.soft').read_bytes().decode('utf-8');rows=[];qc=[]
+for b in s.split('^SAMPLE = ')[1:]:
+ ls=b.splitlines();sample=ls[0];cell=next(l.split('cell line: ',1)[1] for l in ls if l.startswith('!Sample_characteristics_ch1 = cell line: '));start=next(i for i,l in enumerate(ls) if l.strip()=='!sample_table_begin');end=next(i for i,l in enumerate(ls) if l.strip()=='!sample_table_end');x=pd.read_csv(io.StringIO('\n'.join(ls[start+1:end])),sep='\t');assert len(x)==54675 and x.ID_REF.is_unique and np.isfinite(x.VALUE).all();qc.append({'sample':sample,'cell_line':cell,'mean_intensity':float(x.VALUE.mean()),'median_intensity':float(x.VALUE.median()),'nonpositive':int((x.VALUE<=0).sum())})
+ for _,r in x[x.ID_REF.isin(hit.ID)].iterrows():rows.append({'sample':sample,'cell_line':cell,'probe':r.ID_REF,'value':r.VALUE,'detection_call':r.ABS_CALL,'detection_P':r['DETECTION P-VALUE'],'unique_CGNL1':bool(hit.set_index('ID').loc[r.ID_REF,'unique_CGNL1'])})
+t=pd.DataFrame(rows);out=[]
+for probe,v in t.groupby('probe'):
+ for high,low in [('60As6','HSC-60'),('60As6Luc','HSC-60Luc')]:
+  h=v[v.cell_line==high];l=v[v.cell_line==low];assert len(h)==len(l)==2;valid=(h.value>0).all() and (l.value>0).all();out.append({'probe':probe,'contrast':high+'minus'+low,'unique_CGNL1':bool(v.unique_CGNL1.iloc[0]),'mean_high':h.value.mean(),'mean_parental':l.value.mean(),'mean_ratio':h.value.mean()/l.value.mean() if l.value.mean()!=0 else np.nan,'mean_log2_difference':np.log2(h.value).mean()-np.log2(l.value).mean() if valid else np.nan,'high_present_arrays':int(h.detection_call.eq('P').sum()),'parental_present_arrays':int(l.detection_call.eq('P').sum())})
+r=pd.DataFrame(out)
+for n,d in [('sample_probes',t),('contrasts',r),('arrayQC',pd.DataFrame(qc))]:d.to_csv(O/'results'/('GSE53276_'+n+'.tsv'),sep='\t',index=False,encoding='utf-8')
+print(r.to_string(index=False));print(t.to_string(index=False));print('QC',pd.DataFrame(qc).to_string(index=False));(O/'results/INTRINSIC_ARRAY_COMPLETE.json').write_text(json.dumps({'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'spec_sha256':hashlib.sha256(sp.read_bytes()).hexdigest(),'n_arrays':8,'n_probes':len(hit),'differential_P_computed':False,'mechanism_established':False},indent=2),encoding='utf-8')

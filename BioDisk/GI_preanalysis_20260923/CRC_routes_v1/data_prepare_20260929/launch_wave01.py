@@ -1,0 +1,1 @@
+import subprocess,json; from pathlib import Path; r=Path(__file__).parent; p=subprocess.run(["python3",str(r/"download_manager.py")]); (r/"wave01.EXIT.json").write_text(json.dumps({"exit_code":p.returncode}))

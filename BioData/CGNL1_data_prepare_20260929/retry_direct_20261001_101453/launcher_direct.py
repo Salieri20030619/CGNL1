@@ -1,0 +1,1 @@
+import subprocess,json,os; from pathlib import Path; r=Path(__file__).parent; env={k:v for k,v in os.environ.items() if not k.lower().endswith("proxy")}; p=subprocess.run(["python3",str(r/"download_atac_direct.py")],env=env); (r/"DIRECT_PROCESS_EXIT.json").write_text(json.dumps({"exit_code":p.returncode,"network_mode":"direct_only"}))

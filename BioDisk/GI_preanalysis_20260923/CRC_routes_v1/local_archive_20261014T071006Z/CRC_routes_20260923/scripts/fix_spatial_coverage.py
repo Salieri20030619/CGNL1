@@ -1,0 +1,12 @@
+﻿from pathlib import Path
+O=Path(r'C:\Users\31937\CRC_routes_20260923');p=O/'scripts/route2_analysis.py';s=p.read_text(encoding='utf-8-sig');s=s.replace("plan=json.loads((O/'metadata/ANALYSIS_PLAN.json').read_text());ann=", "plan=json.loads((O/'metadata/ANALYSIS_PLAN.json').read_text());plan['programs']['epithelial_available3']=['EPCAM','KRT8','KRT19'];ann=")
+s=s.replace("genes=sy,gene_ids=ids,","genes=sy.astype(str),gene_ids=ids.astype(str),")
+s=s.replace("mask=np.isin(sy,gs);assert mask.sum()>=.8*len(gs);progs.append(","mask=np.isin(sy,gs);covered=mask.sum()>=.8*len(gs);progs.append(")
+s=s.replace("'delta':float(d[mask].mean()),'front_score':float(lf[mask].mean()),'other_score':float(lb[mask].mean())", "'delta':float(d[mask].mean()) if covered else np.nan,'front_score':float(lf[mask].mean()) if covered else np.nan,'other_score':float(lb[mask].mean()) if covered else np.nan")
+p.write_text(s,encoding='utf-8')
+head="""import pathlib,json,numpy as np,pandas as pd
+O=pathlib.Path('/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CRC_routes_v1');R=O/'results/route2';plan=json.loads((O/'metadata/ANALYSIS_PLAN.json').read_text());plan['programs']['epithelial_available3']=['EPCAM','KRT8','KRT19'];a=np.load(R/'region_aggregates.npz',allow_pickle=True);P=a['counts'];M=a['mean_CP10K'];sy=a['genes'].astype(str);ids=a['gene_ids'].astype(str);meta=pd.read_csv(R/'region_metadata.tsv',sep='\\t');qc=pd.read_csv(R/'sample_QC.tsv',sep='\\t').to_dict('records');samples=sorted(meta['sample'].unique());pm=pd.read_csv(O/'metadata/spatial_patient_map.tsv',sep='\\t').set_index('sample')
+coverage=[{'program':pn,'planned':len(gs),'measured':int(np.isin(sy,gs).sum()),'missing':';'.join(g for g in gs if g not in sy),'original_score_available':np.isin(sy,gs).sum()>=.8*len(gs)} for pn,gs in plan['programs'].items()];pd.DataFrame(coverage).to_csv(R/'program_coverage.tsv',sep='\\t',index=False)
+(R/'COVERAGE_NOTE.json').write_text(json.dumps({'KRT18':'not in FFPE probe matrix; original epithelial proxy below 80% coverage, retained as NA','LDHA':'not in probe matrix; hypoxia uses 5/6 measured markers','epithelial_available3':'Added diagnostic-only EPCAM/KRT8/KRT19 proxy after coverage audit; no significance testing or candidate-based selection.'},indent=2))
+"""
+(O/'scripts/route2_resume.py').write_text(head+s.split('# Each section contributes one effect; then equal-weight sections within patient.')[1],encoding='utf-8')

@@ -1,0 +1,14 @@
+args<-commandArgs(trailingOnly=TRUE)
+w<-args[1]
+d<-read.delim(file.path(w,"pilot_cid.txt"),skip=1,header=TRUE,check.names=FALSE,quote="",stringsAsFactors=FALSE)
+decoy<-grepl("DECOY_",d$protein,fixed=TRUE)
+phospho<-grepl("79.966",d$modifications,fixed=TRUE)
+calcq<-function(scores,decoys){
+  o<-order(scores);s<-scores[o];dd<-as.integer(decoys[o]);ends<-c(which(diff(s)!=0),length(s))
+  nd<-cumsum(dd)[ends];nt<-ends-nd
+  fdr<-pmin(1,(nd+1)/pmax(nt,1));q<-rev(cummin(rev(fdr)))
+  sortedq<-rep(q,diff(c(0,ends)));out<-numeric(length(s));out[o]<-sortedq;out
+}
+qall<-calcq(d[["e-value"]],decoy);qph<-rep(NA_real_,nrow(d));qph[phospho]<-calcq(d[["e-value"]][phospho],decoy[phospho])
+write.csv(data.frame(row_id=seq_len(nrow(d))-1,q_global=qall,q_phospho=qph),file.path(w,"independent_R_qvalues.csv"),row.names=FALSE,fileEncoding="UTF-8")
+writeLines(capture.output(sessionInfo()),file.path(w,"independent_R_session.txt"),useBytes=TRUE)

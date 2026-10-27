@@ -1,0 +1,10 @@
+from pathlib import Path
+import anndata as ad,numpy as np,json,datetime
+B=Path("/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CGNL1_vascular_context_qualification_20261018_v1");s=json.loads((B/"metadata/ATLAS543_STATE.json").read_text());f=next(x["path"] for x in s["files"] if x["kind"]=="ec");a=ad.read_h5ad(f);a=a[a.obs.organ_uni=="liver"].copy();m=a.layers["counts"].astype(np.float64);assert np.isfinite(m.data).all() and (m.data>=0).all();assert len(a.var_names)==len(set(a.var_names));v=m[:,a.var_names.get_loc("CGNL1")].toarray().ravel();denom=np.asarray(m.sum(axis=1)).ravel()-v;rows=[]
+for (donor,state),idx in a.obs.groupby(["donor","ann_ec_states"],observed=True).indices.items():
+ t=float(v[idx].sum());d=float(denom[idx].sum());rows.append(dict(donor=str(donor),state=str(state),cells=len(idx),target_positive=int((v[idx]>1e-6).sum()),target_count=t,non_target_UMI=d,log2CPM1=float(np.log2(1+1e6*t/d)) if d>0 else None,datasets=sorted(set(a.obs.iloc[idx].dataset.astype(str)))))
+checks={}
+for g in ["PECAM1","CDH5","PROX1","PDPN","CLEC4G","STAB2","FCGR2B","ACKR1","SELP","RGCC","KDR"]:
+ if g not in a.var_names:checks[g]={"missing":True};continue
+ x=m[:,a.var_names.get_loc(g)].toarray().ravel();checks[g]={str(state):dict(cells=len(idx),positive=int((x[idx]>1e-6).sum())) for state,idx in a.obs.groupby("ann_ec_states",observed=True).indices.items()}
+r=dict(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),source=f,shape=a.shape,n_donors=int(a.obs.donor.nunique()),integer_count_validation=bool((abs(m.data-np.rint(m.data))<=1e-6).all()),rows=rows,marker_checks=checks,biological_P=None,interpretation="Normal liver subtype context only. No cross-study cancer differential test; integrated atlas cells were donor-organ downsampled in source study.",mainline_validated=False);(B/"results/normal_atlas_544/NORMAL_LIVER547.json").write_text(json.dumps(r,indent=2),encoding="utf-8");print(json.dumps(dict(rows=rows,integer_count_validation=r["integer_count_validation"])))

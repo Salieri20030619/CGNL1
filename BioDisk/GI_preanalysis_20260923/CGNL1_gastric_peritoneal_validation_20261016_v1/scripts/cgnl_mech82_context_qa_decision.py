@@ -1,0 +1,15 @@
+from pathlib import Path
+import json,datetime
+import pandas as pd,numpy as np
+from scipy import stats
+O=Path.cwd()/'mechanism_investigation_v2';d=pd.read_csv(O.parent/'results/bulk_patient_deltas.tsv',sep='\t');r=pd.read_csv(O/'results/GSE314812_source_context_correlations.tsv',sep='\t');err=0
+x=stats.rankdata(d.CGNL1);z=d.preservation_delta.to_numpy();rxz=np.corrcoef(x,z)[0,1]
+for _,row in r.iterrows():
+ y=stats.rankdata(d[row.panel]);rho=np.corrcoef(x,y)[0,1]
+ if row.model=='partial_rank_preservation':
+  ryz=np.corrcoef(y,z)[0,1];rho=(rho-rxz*ryz)/np.sqrt((1-rxz**2)*(1-ryz**2))
+ err=max(err,abs(rho-row.rho));df=len(d)-3 if row.model=='partial_rank_preservation' else len(d)-2;P=2*stats.t.sf(abs(rho*np.sqrt(df/(1-rho*rho))),df);err=max(err,abs(P-row.P))
+assert err<1e-10
+qa={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'all_pass':True,'correlation_formula_independent_recalculation':True,'max_error':err};(O/'results/BULK_SOURCE_CONTEXT_QA.json').write_text(json.dumps(qa,indent=2),encoding='utf-8')
+ledger=json.loads((O/'results/MECHANISM_EVIDENCE_LEDGER_v4.json').read_text(encoding='utf-8'));ledger.extend([{'id':'MEC-10','source':'GSE314812 reused17pairedtissues, exploratory6sourceproxycorrelations','finding':'CGNL1delta inverseepithelialproxy rho-.7549,P.000460,FDR.00276;preservationpartialrho-.70275,P.002397,FDR.01438. Endothelial/mesothelialunadjustednominalpositiveassociationsdonotretainnominalsignificanceafterpreservationadjustment.','interpretation':'lineage/compositionorepithelialstateassociation; notspecificproof ofmesothelium,endothelium,orEMT. Cannotdistinguishlossofepithelialabundancefrommalignantcellstatechange.','implication':'sourceassignmentmustnotidentifyallmalignantcellsbyEPCAM+keratinonly; CGNL1positiveEPCAMlowcellsrequireindependentmalignantidentityqualification.'},{'id':'MEC-11','source':['PMC5852532','PMC12238879'],'finding':'CGNL1 hasdirectendothelialgrowth/junctionfunctionevidence,includingin-vivojunctionNM2localization','interpretation':'vascularsourceisbiologicallyplausiblealternativebutnotdemonstratedasGC-PMmechanism; genericCGNL1angiogenesisnotnovel','next':'compareactualtissuesourceprofiles; donotforceallsignaltomesothelium'}]);(O/'results/MECHANISM_EVIDENCE_LEDGER_v5.json').write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf-8')
+p=O/'STATUS.json';s=json.loads(p.read_text(encoding='utf-8'));s.update(utc=qa['utc'],mechanism_ledger='results/MECHANISM_EVIDENCE_LEDGER_v5.json',last_goal_turn_classification='progress:all6fixedsourceproxyassociationsinpairedGCevaluatedandindependentlyvalidated;epithelialinverseassociationidentified; competingmalignantEMTvscompositionexplanationexplicit');s['tissue_interpretation_gate']='Marker-onlyEPCAMhighconservativeepithelialgateisnotallmalignantcells. IfCGNL1islocalizedtomarker-definedstromalcells,do notautomaticallyinferhostoriginwithoutindependentidentitysupport;CNV/protein/pathologyqualificationsmaybeneeded.';p.write_text(json.dumps(s,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(qa))

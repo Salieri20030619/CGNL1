@@ -1,0 +1,6 @@
+﻿import pathlib,json,pandas as pd,numpy as np
+from scipy import stats
+R=pathlib.Path('/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/GC_validation_v2');O=R/'04_results'/'independent_scRNA';plan=json.loads((R/'00_docs'/'external_gating_plan.json').read_text());gate=set(sum(plan['lineage'].values(),[]));p=R/'scripts'/'independent_scRNA.py';s=p.read_text();s=s.replace("if n>=10 and (d!=0).any() else np.nan","if n>=10 and (d!=0).any() and g not in set(sum(lineage.values(),[])) else np.nan");p.write_text(s)
+c=pd.read_csv(O/'within_patient_macrophage_vs_lymphoid.tsv',sep='\t');c['gating_gene_control']=c.gene.isin(gate);c.loc[c.gating_gene_control,['P','FDR_BH_all_marker_family']]=np.nan;ok=c.P.notna();c.loc[ok,'FDR_BH_all_marker_family']=stats.false_discovery_control(c.loc[ok,'P'].values,method='bh');c.to_csv(O/'within_patient_macrophage_vs_lymphoid.tsv',sep='\t',index=False)
+e=c[c.gene.isin(plan['endpoints'])].copy();e['FDR_BH_prespecified_3_endpoints']=stats.false_discovery_control(e.P.values,method='bh');e.to_csv(O/'prespecified_endpoint_validation.tsv',sep='\t',index=False)
+print((O/'summary.json').read_text());print('ELIGIBLE_NON_GATING_HYPOTHESES',int(ok.sum()));print(e.to_string(index=False))

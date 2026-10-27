@@ -1,0 +1,12 @@
+from pathlib import Path
+import json,datetime,hashlib
+O=Path.cwd()/'mechanism_investigation_v2'
+s=(O/'metadata/GSE308231_family.soft').read_text(encoding='utf-8');samples=[]
+for block in s.split('^SAMPLE = ')[1:]:
+ lines=block.splitlines();d={'accession':lines[0]}
+ for tag in ['title','source_name_ch1','characteristics_ch1','supplementary_file_1','supplementary_file_2','supplementary_file_3']:
+  d[tag]=[l.split(' = ',1)[1] for l in lines if l.startswith('!Sample_'+tag+' = ')]
+ samples.append(d)
+spec={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'data':'GSE308231','metadata_sha256':hashlib.sha256((O/'metadata/GSE308231_family.soft').read_bytes()).hexdigest(),'samples':samples,'aim':'Independent tissue-source qualification; target disease contrast only exploratory, no causal inference','qc_primary':{'UMI_min':5000,'genes_min':250,'mitochondrial_fraction_max':0.15,'basis':'published study thresholds; doublet filtering not reproduced by initial marker gate'},'qc_sensitivity':{'UMI_min':500,'genes_min':200,'genes_max':7000,'mitochondrial_fraction_max':0.25,'basis':'prior CGNL1 fluid study thresholds; sensitivity not replacement'},'source_panels':{'mesothelial_specific':['UPK3B','LRRN4'],'mesothelial_support':['WT1','CALB2','MSLN'],'epithelial':['EPCAM','KRT8','KRT18','KRT19'],'immune':['PTPRC','LST1','TYROBP','CD3D','CD3E','CD79A','MS4A1'],'fibroblast':['COL1A1','COL1A2','DCN','LUM'],'endothelial':['PECAM1','VWF','KDR','EMCN'],'mural':['RGS5','CSPG4','MCAM','NOTCH3']},'identity':'CGNL1 excluded; strict mesothelial requires specific>=1/support>=1, immune<2; epithelial EPCAM+ and KRT>=2, specificmeso==0,immune<2; stromal gates exploratory marker-defined with overlap recorded','measures':['per-sample per-source total target UMI / total UMI','target detection fraction','source fraction','target UMI distribution across sources and overlap'],'minimum_cells':[20,50],'independent_unit':'patient when verified, otherwise report sample count; no assumed pairing','inference':'six samples only: descriptive directions and effect sizes, no cell-level or donor-unverified P values','mechanistic_limit':'marker-defined cells not proven malignant; no healthy peritoneum comparator; PM vs primary is location and disease composite'}
+p=O/'TISSUE_ANALYSIS_SPECIFICATION.json'
+assert not p.exists();p.write_text(json.dumps(spec,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(samples,ensure_ascii=False,indent=2))

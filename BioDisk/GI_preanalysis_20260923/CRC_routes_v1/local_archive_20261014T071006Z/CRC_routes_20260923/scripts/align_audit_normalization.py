@@ -1,0 +1,2 @@
+﻿from pathlib import Path
+p=Path(r'C:\Users\31937\CRC_routes_20260923\scripts\route1_audit.py');s=p.read_text(encoding='utf-8-sig');s=s.replace("out[ct+'_delta']=z.median_delta_log2CPM;", "out[ct+'_delta']=z.median_delta_log2CPM;out[ct+'_meanCP10K_delta']=z.median_delta_mean_CP10K;");s=s.replace("out.all_sensitivity_direction_agree&(out['Tumor_strict_QC_delta'].abs()>=1)","out.all_sensitivity_direction_agree&(np.sign(out['Tumor_strict_QC_meanCP10K_delta'])==direction)&(out['Tumor_strict_QC_delta'].abs()>=1)");p.write_text(s,encoding='utf-8')

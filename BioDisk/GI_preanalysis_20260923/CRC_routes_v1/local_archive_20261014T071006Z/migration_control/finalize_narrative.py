@@ -1,0 +1,14 @@
+from pathlib import Path
+p=Path(r'D:\CGNL1\_transfer\05_report.py')
+s=p.read_text(encoding='utf-8')
+s=s.replace("predline=f'Patient-held-out prediction improves for {npred} of the two primary endpoints; full errors and patient consistency are reported below.'", "predline=f'Patient-held-out prediction improves for {npred} of the two primary endpoints; full errors and patient consistency are reported below.'\nps=P[P.measurement.eq(measure)&P.population.eq('fixed_qc_ge50_all_sites')&P.model.eq('M1')]\ntherapy=c[c.readout.eq('CGNL1')].iloc[0]\ntherapyline=f\"CGNL1 declines in {int(therapy.negative_patients)} of {int(therapy.n)} primary paired donors (median On-minus-Pre change {therapy.median_delta:.5f} log-expression units; P={therapy.P:.6g}, FDR={therapy.FDR:.6g}).\"\ncs=C[C.measurement.eq(measure)&C.readout.eq('CGNL1')&C.population.isin(['fixed_qc_ge50_all_sites','author_retained_ge20_all_sites'])]")
+s=s.replace("body+='<h2>'+headline+'</h2><p>'+html.escape(' '.join(claims))+'</p><p>'+predline+'</p>'", "body+='<h2>CGNL1 decreases in the primary paired analysis</h2><p>'+therapyline+'</p>'\nbody+='<h2>'+headline+'</h2><p>'+html.escape(' '.join(claims))+'</p><p>'+predline+'</p>'")
+needle="body+='<h2>Discussion</h2>"
+replacement="""body+='<h2>The actomyosin prediction gain does not persist at the higher cell threshold</h2>'
+pa=p[p.outcome.eq('actomyosin')].iloc[0];sa=ps[ps.outcome.eq('actomyosin')].iloc[0]
+body+=f'<p>Adding CGNL1 reduces primary actomyosin prediction MSE by {100*pa.relative_MSE_improvement:.1f}% ({int(pa.patients_improved)}/{int(pa.n)} patients improve). With at least 50 cells at each time point, the relative improvement becomes {100*sa.relative_MSE_improvement:.1f}% ({int(sa.patients_improved)}/{int(sa.n)} improve). This prespecified sensitivity excludes P29, who has 26 retained on-treatment epithelial cells. The prediction increment is not stable across the two coverage gates. Cycling prediction worsens in both gates.</p>'
+body+='<p>The CGNL1 decrease remains directionally consistent in the alternative populations, but statistical strength depends on cell filtering. The exact sensitivity results are retained here; nominal significance and FDR significance are distinguished.</p>'+table(cs[['population','n','mean_delta','median_delta','negative_patients','P','FDR']])
+body+='<h2>Discussion</h2>'"""
+assert needle in s;s=s.replace(needle,replacement)
+s=s.replace("'local_policy':'D:/CGNL1 retains", "'interpretation':'Primary paired CGNL1 decrease; conditional actomyosin/cycling associations not nominal; actomyosin LOPO improvement reverses at the >=50-cell sensitivity gate; no stable independent increment established','local_policy':'D:/CGNL1 retains")
+p.write_text(s,encoding='utf-8');compile(s,str(p),'exec')

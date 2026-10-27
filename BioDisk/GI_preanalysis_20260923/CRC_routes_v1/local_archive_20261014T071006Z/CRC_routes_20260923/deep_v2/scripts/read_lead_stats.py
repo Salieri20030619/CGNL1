@@ -1,0 +1,2 @@
+﻿import pathlib,pandas as pd
+O=pathlib.Path(r'C:\Users\31937\CRC_routes_20260923\deep_v2');x=pd.read_csv(O/'results/bulk_validation/candidate_validation_all_models.tsv',sep='\t');c=pd.read_csv(O/'results/bulk_validation/pair_concordance.tsv',sep='\t');print(x[x.candidate=='CGNL1'][['model','logFC','CI.L','CI.R','P.Value','adj.P.Val','FDR_fixed126']].to_string(index=False));print(c[c.gene=='CGNL1'].to_string(index=False))

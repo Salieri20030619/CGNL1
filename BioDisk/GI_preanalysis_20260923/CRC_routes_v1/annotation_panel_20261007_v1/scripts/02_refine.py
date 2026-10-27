@@ -1,0 +1,11 @@
+exec(open('/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CRC_routes_v1/annotation_panel_20261007_v1/scripts/01_prepare.py').read().split('with gzip.open')[0])
+q=ad.read_h5ad(D/'cache/clustered_log_normalized.h5ad');q.obs['review_cluster']=q.obs.cluster06.astype(str)
+records=[]
+for cl in ['0','3','9']:
+ z=q[q.obs.cluster06.astype(str).eq(cl),~q.var_names.isin(excluded)].copy();sc.pp.filter_genes(z,min_cells=10);sc.pp.scale(z,max_value=10);sc.tl.pca(z,n_comps=20,random_state=20261007);sc.pp.neighbors(z,n_neighbors=20,n_pcs=20,metric='cosine',random_state=20261007);sc.tl.leiden(z,resolution=.5,key_added='subcluster',random_state=20261007,n_iterations=2,flavor='igraph');q.obs.loc[z.obs_names,'review_cluster']=cl+'.'+z.obs.subcluster.astype(str);print('SUBCLUSTERS',cl,z.obs.subcluster.value_counts().to_dict(),flush=True)
+globalmean=np.asarray(q.X.mean(0)).ravel();means=[];fracs=[]
+for cl,ix in q.obs.groupby('review_cluster',observed=True).indices.items():
+ Z=q.X[ix];mean=np.asarray(Z.mean(0)).ravel();pct=Z.getnnz(axis=0)/len(ix);other=(globalmean*q.n_obs-mean*len(ix))/(q.n_obs-len(ix));delta=mean-other;means.append(pd.Series(mean,index=q.var_names,name=str(cl)));fracs.append(pd.Series(pct,index=q.var_names,name=str(cl)))
+ for j in np.argsort(delta)[::-1]:records.append(dict(cluster=cl,cells=len(ix),gene=q.var_names[j],mean_log=mean[j],delta_log_mean=delta[j],fraction_detected=pct[j],identity_allowed=q.var_names[j] not in excluded))
+pd.DataFrame(records).to_csv(R/'results/refined_cluster_markers.tsv',sep='\t',index=False);pd.DataFrame(means).to_csv(R/'results/refined_cluster_mean_log.tsv',sep='\t');pd.DataFrame(fracs).to_csv(R/'results/refined_cluster_detection_fraction.tsv',sep='\t');q.write_h5ad(D/'cache/refined_log_normalized.h5ad',compression='gzip')
+(R/'results/REFINE_COMPLETE.json').write_text(json.dumps(dict(exit_code=0,review_clusters=q.obs.review_cluster.nunique(),reference_transfer_status='failed domain transfer: near-universal hepatocyte calls including endothelial-marker enriched cluster; raw reference calls retained as audit only; no reference veto or calibrated confidence',secondary_clustering='Leiden0.5 within primary mixed clusters0,3,9; expression-only same target exclusion',inferential_tests=False),indent=2))

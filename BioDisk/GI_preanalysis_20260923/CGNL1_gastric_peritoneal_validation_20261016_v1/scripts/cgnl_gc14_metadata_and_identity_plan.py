@@ -1,0 +1,11 @@
+from pathlib import Path
+import zipfile,json,re,datetime
+from bs4 import BeautifulSoup
+O=Path.cwd();B=O.parent;V=B/'GC_validation_v2'
+z=V/'01_metadata/GSE228598_supplement.zip'
+with zipfile.ZipFile(z) as f:print('SUPPLEMENT_FILES',[(i.filename,i.file_size) for i in f.infolist()])
+p=B/'01_metadata/GC_228598.xml';txt=p.read_text(encoding='utf-8');soup=BeautifulSoup(txt,'html.parser');text=soup.get_text(' ',strip=True)
+for pat in ['Table 1','Supplementary','Patients','patients','ascites','lavage','stage','mesothelial']:
+ print('PAPER',pat,[text[max(0,m.start()-90):m.start()+500] for m in list(re.finditer(re.escape(pat),text))[:3]])
+plan={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'stage':'post-source-discovery identity verification, not external replication','known':'legacyMesothelial_like gate showsCGNL1enrichment;new gatesnot yet tested','identity_panels':{'mesothelial_specific':['UPK3B','LRRN4'],'mesothelial_support':['WT1','CALB2','MSLN'],'epithelial':['EPCAM','KRT8','KRT18','KRT19'],'cancer_support':['CEACAM5','CEACAM6','TACSTD2','MUC1'],'myeloid':['LST1','TYROBP','FCER1G','AIF1','CSF1R'],'fibroblast':['COL1A1','COL1A2','DCN','LUM']},'strict_mesothelial':'atleast1UPK3B/LRRN4plusatleast1WT1/CALB2/MSLN;fewerthan2myeloidmarkersandnotlegacylymphoid;mixedtumormarkersrecordednotignored','conservative_epithelial':'EPCAMdetectedplusatleast2KRT8/KRT18/KRT19;neitherspecificmesomarker;nonmyeloid/nonlymphoid;notautomaticallymalignant','source_contrasts':['strict_mesothelial vs conservative_epithelial','strict_mesothelial vs legacy macrophage_enriched'],'statistical_unit':'patient;>=20each;>=50sensitivity;rawPif>=10patients;2contrastBHfamily;zerosretained','state_panels':{'junction':['CDH1','TJP1','OCLN','JUP','CTNNB1'],'mesenchymal':['VIM','FN1','COL1A1','COL1A2','ACTA2','TAGLN'],'cycling':['MKI67','TOP2A','PCNA','UBE2C','CENPF']},'state_test':'patientstrictmesopseudobulkCGNL1versus3stateprograms;rawSpearmananddepth+mesoidentityHC3ifn>=10anddf>=5;twofamilytypes3each;exploratorypostprimarynotmechanism','no_PC_vs_nonPC_test_until_patient_metadata_qualified':True}
+(O/'MESOTHELIAL_IDENTITY_SPEC.json').write_text(json.dumps(plan,indent=2),encoding='utf-8');print('IDENTITY_PLAN_FROZEN')

@@ -1,0 +1,23 @@
+from pathlib import Path
+import json,datetime,hashlib,subprocess,re
+from concurrent.futures import ThreadPoolExecutor
+from bs4 import BeautifulSoup
+O=Path('/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CGNL1_digestive_scope_20261016_v1');O.mkdir(exist_ok=False)
+for x in ['literature','metadata','report','logs']:(O/x).mkdir()
+now=datetime.datetime.now(datetime.timezone.utc).isoformat()
+scope={'utc':now,'user_request':'这个候选问题感觉太局限了，没什么研究的价值，如果把范围放到所有消化道肿瘤上重新进行检索，我感觉是不是一开始就把范围限定的太小了','stage':'expanded_problem_discovery_literature_first_pass','scope':['esophagus, separate ESCC and EAC','stomach','small bowel and appendix','colon and rectum','anal canal as rare GI subgroup','pancreas, liver and biliary cancers as related digestive-system group'],'retain_target_as_lead':'linear CGNL1/paracingulin; explicitly separate circular isoforms and fusion partners','release_prior_constraints':['CRC only','liver metastasis only','endothelial/mural interface only','spatial method mandatory'],'selection_order':['important biological/clinical problem','direct target evidence and competing explanations','novelty relative to original literature','qualified accessible material','method choice'],'not_a_new_primary_disease_commitment':True,'old_spatial_results_preserved':'CRC_routes_v1/spatial_mainline_validation_20261016_v1','limits':'focused first-pass search, not a systematic review or completed cross-disease empirical screen; no new disease statistics generated'}
+(O/'SCOPE_RESET.json').write_text(json.dumps(scope,ensure_ascii=False,indent=2),encoding='utf-8')
+queries=['CGNL1 cancer gastric pancreatic esophageal colorectal hepatocellular','paracingulin cancer gastric pancreatic liver','CGNL1 cancer mechanism tumor suppressor','CGNL1 gastric cancer','CGNL1 esophageal cancer','CGNL1 cholangiocarcinoma','CGNL1 pancreatic excluding circRNA','CGNL1 small intestinal cancer','CGNL1 gallbladder cancer','CGNL1 hepatocellular carcinoma excluding circRNA','CGNL1 colorectal','gastric peritoneal metastasis single cell spatial atlas','esophageal squamous dysplasia invasive cancer single cell spatial atlas','gastric intestinal metaplasia progression spatial atlas']
+(O/'metadata/SEARCH_SCOPE.json').write_text(json.dumps({'utc':now,'queries':queries,'molecular_identity_policy':'CGNL1 protein/linear transcript != circCGNL1 != CGNL1-FGFR2 fusion'},ensure_ascii=False,indent=2),encoding='utf-8')
+sources={'gastric_PC_2022':'https://www.frontiersin.org/journals/oncology/articles/10.3389/fonc.2022.939969/full','gastric_PC_2016':'https://www.nature.com/articles/srep22371','pancreatic_circ_2024':'https://pmc.ncbi.nlm.nih.gov/articles/PMC10829403/','liver_circ_2020':'https://medsci.org/v17p1351.htm','gastric_ascites_2023':'https://www.nature.com/articles/s41467-023-36310-9','gastric_GEO_GSE163558':'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE163558&targ=self&form=text&view=full','GEJ_GEO_GSE288235':'https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE288235&targ=self&form=text&view=full'}
+def fetch(item):
+ name,url=item;p=O/'literature'/(name+'.response');r=subprocess.run(['curl','--noproxy','*','-L','--connect-timeout','10','--max-time','35','-sS','-w','%{http_code}','-o',str(p),url],capture_output=True,timeout=40);rec={'name':name,'url':url,'exit_code':r.returncode,'http':r.stdout.decode('utf-8'),'error':r.stderr.decode('utf-8')}
+ if p.exists():
+  b=p.read_bytes();rec.update(bytes=len(b),sha256=hashlib.sha256(b).hexdigest())
+  if r.returncode==0 and r.stdout==b'200':
+   soup=BeautifulSoup(b,'html.parser');plain=soup.get_text(' ',strip=True);(O/'literature'/(name+'.txt')).write_text(plain,encoding='utf-8');rec['figure2_urls']=sorted(set(re.findall(r'https[^\s"<>]+g002[^\s"<>]*',b.decode('utf-8'))))[:6]
+ return rec
+with ThreadPoolExecutor(max_workers=4) as ex:receipts=list(ex.map(fetch,sources.items()))
+(O/'metadata/FETCH_RECEIPTS.json').write_text(json.dumps(receipts,ensure_ascii=False,indent=2),encoding='utf-8')
+fig='https://www.frontiersin.org/files/Articles/939969/fonc-12-939969-HTML/image_m/fonc-12-939969-g002.jpg';p=O/'literature/gastric_PC_2022_fig2.jpg';r=subprocess.run(['curl','--noproxy','*','-L','--connect-timeout','10','--max-time','35','-sS','-w','%{http_code}','-o',str(p),fig],capture_output=True,timeout=40);fr={'url':fig,'exit':r.returncode,'http':r.stdout.decode('utf-8'),'bytes':p.stat().st_size if p.exists() else 0};(O/'metadata/FIGURE_FETCH.json').write_text(json.dumps(fr,indent=2),encoding='utf-8')
+print(json.dumps({'directory':str(O),'sources':[{'name':x['name'],'http':x['http'],'figure2_urls':x.get('figure2_urls',[])} for x in receipts],'figure':fr},ensure_ascii=False))

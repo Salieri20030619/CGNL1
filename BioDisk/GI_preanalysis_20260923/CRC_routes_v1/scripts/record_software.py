@@ -1,0 +1,2 @@
+﻿import pathlib,json,sys,numpy,pandas,scipy,matplotlib
+O=pathlib.Path('/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CRC_routes_v1');r={'python':sys.version,'numpy':numpy.__version__,'pandas':pandas.__version__,'scipy':scipy.__version__,'matplotlib':matplotlib.__version__,'inference':'No inferential tests in n<10 pilot; R base readRDS used only for author metadata.'};(O/'results/SOFTWARE.json').write_text(json.dumps(r,indent=2));print(json.dumps(r))

@@ -1,0 +1,7 @@
+﻿from pathlib import Path
+p=Path(r'C:\Users\31937\CRC_routes_20260923\deep_v2\scripts\prepare_second_validation.py');s=p.read_text(encoding='utf-8-sig');s=s.replace("expr.index=expr.index.astype(str);print('MATRIX'", "expr=expr.dropna(how='all');expr.index=expr.index.astype(str);print('MATRIX'")
+s=s.replace("rows=[]\nfor _,r in ann.iterrows():", "info=pd.read_csv(O/'metadata/Homo_sapiens.gene_info.gz',sep='\\t',low_memory=False);current=set(info.Symbol.astype(str));aliases={}\nfor _,v in info.iterrows():\n for alias in str(v.Synonyms).split('|'):\n  if alias!='-':aliases.setdefault(alias,set()).add(str(v.Symbol))\nrows=[]\nfor _,r in ann.iterrows():")
+s=s.replace("accessions=re.findall(r'[NX][MPR]_\\d+',str(r.SPOT_ID));gs=set()", "label=str(r.SPOT_ID);accessions=re.findall(r'[NX][MPR]_\\d+',label);gs=({label} if label in current else aliases.get(label,set()).copy())\n if re.match(r'^\\d+\\*',label) or label.startswith('i'):accessions=[];gs=set()")
+s=s.replace("g=g.groupby(level=0).mean();g.to_csv", "g=g.groupby(level=0).mean().dropna();g.to_csv")
+s=s.replace("'unique RefSeq RNA/protein accession stem to NCBI GTF gene; ambiguous/unmapped excluded; multiple probes averaged without outcome selection'", "'exact current symbol, unique NCBI synonym, or unique RefSeq accession; multiplied or i-prefixed mapping labels conservatively excluded; all-NA filtered probes removed; multi-probe gene mean without outcome selection'")
+p.write_text(s,encoding='utf-8')

@@ -1,0 +1,2 @@
+﻿import pathlib,csv,sys
+sys.stdout.reconfigure(encoding='utf-8');O=pathlib.Path(r'C:\Users\31937\CRC_routes_20260923');rows=list(csv.DictReader((O/'results/route1/cross_subtype_sensitivity_screen.tsv').open(),delimiter='\t'));z=[r for r in rows if r['passes_descriptive_sensitivity']=='True'];print('GENES',' '.join(r['gene'] for r in z));print('5 OF5 UP',' '.join(r['gene'] for r in z if r['positive']=='5'))

@@ -1,0 +1,19 @@
+from pathlib import Path
+import os
+os.environ.update(OPENBLAS_NUM_THREADS='2',OMP_NUM_THREADS='2')
+import json,datetime,hashlib,numpy as np,pandas as pd,anndata as ad
+from scipy import sparse
+O=Path.cwd()/'mechanism_investigation_v2';root=O/'results/CNV_identity';spec=json.loads((O/'CNV_IDENTITY_SPECIFICATION_165.json').read_text(encoding='utf-8'));inputs=json.loads((O/'metadata/CNV_INPUTS_READY_166.json').read_text(encoding='utf-8'));ann=json.loads((O/'metadata/CNV_ANNOTATION_READY_164.json').read_text(encoding='utf-8'));genemap=pd.read_csv(ann['gene_order'],sep='\t').set_index('gene_id');stats=pd.read_csv(root/'group_descriptors.tsv',sep='\t');similarity=pd.read_csv(root/'mesothelial_profile_similarity.tsv',sep='\t');errors=[];records=[]
+for item in inputs['cases']:
+ a=ad.read_h5ad(item['file']);assert hashlib.sha256(Path(item['file']).read_bytes()).hexdigest()==item['sha256'];assert a.obs_names.is_unique and a.var_names.is_unique;assert not set(a.var.gene_symbol)&set(spec['gene_exclusions']);expected=sparse.diags(10000/a.obs.original_total_UMI.to_numpy())@a.layers['counts'];expected=expected.tocsr();expected.data=np.log1p(expected.data);delta=(expected-a.X).data;normerr=float(np.max(abs(delta))) if len(delta) else 0.;assert normerr<2e-6
+ D=root/(item['dataset']+'_'+item['sample']);genes=pd.read_csv(D/'mapped_genes.tsv',sep='\t').set_index('gene_id');g=genemap.loc[genes.index];assert np.array_equal(genes.chromosome,g.chromosome) and np.array_equal(genes.start,g.start) and np.array_equal(genes.end,g.end)
+ for model in ['primary','immune_reference']:
+  C=sparse.load_npz(D/(model+'_RNA_CNV.npz'));obs=pd.read_csv(D/(model+'_cell_descriptors.tsv'),sep='\t').set_index('barcode');assert list(obs.index)==list(a.obs_names);assert np.array_equal(obs.group,a.obs.group);assert C.shape[0]==len(obs) and np.isfinite(C.data).all();meta=json.loads((D/(model+'_genomic_windows.json')).read_text(encoding='utf-8'));pos=meta['chr_pos'];assert len(pos)==22 and min(pos.values())==0 and max(pos.values())<C.shape[1]
+  rowmeans=np.array([float(np.abs(C.getrow(i).toarray()).sum()/C.shape[1]) for i in range(C.shape[0])]);errors.append(float(np.max(abs(rowmeans-obs.RNA_CNV_mean_absolute.to_numpy()))));assert errors[-1]<1e-12;profiles={}
+  for group in obs.group.unique():
+   ix=np.flatnonzero(obs.group.eq(group));profiles[group]=np.asarray(C[ix].sum(0)).ravel()/len(ix);r=stats[(stats.dataset==item['dataset'])&(stats['sample']==item['sample'])&(stats.reference_model==model)&stats.group.eq(group)].iloc[0];assert len(ix)==r.n_cells;assert abs(np.median(rowmeans[ix])-r.median_mean_absolute_RNA_CNV)<1e-12
+  for r in similarity[(similarity.dataset==item['dataset'])&(similarity['sample']==item['sample'])&(similarity.reference_model==model)].itertuples():
+   x=profiles['strict_mesothelial'];y=profiles[r.comparison.removeprefix('mesothelial_vs_')];xc=x-x.mean();yc=y-y.mean();den=np.sqrt(np.dot(xc,xc)*np.dot(yc,yc))
+   if den>0:errors.append(abs(float(np.dot(xc,yc)/den)-r.window_profile_correlation));assert errors[-1]<1e-12
+  records.append({'sample':item['sample'],'dataset':item['dataset'],'model':model,'cells':C.shape[0],'windows':C.shape[1],'barcodes_groups_gene_coordinates_pass':True})
+out={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'pass':True,'scope':'fiveinputchecksums/normalization/excludedfeatures; tenoutputrowidentities,genecoordinates,22chromosomeboundaries,magnitudeandprofilecorrelationrecalculation','max_descriptor_error':max(errors),'records':records,'biological_identity_not_proven_by_QA':True,'visual_review':'all10fullchromosomeheatmaps inspected; PM2mesothelial-likeprofile closelymatchesepithelialinbothreferences; GSM9240675lowergrouplabelsneedlayoutrefinementbeforepresentation'};(O/'results/CNV_NUMERIC_QA_170.json').write_text(json.dumps(out,indent=2),encoding='utf-8');print(json.dumps(out))

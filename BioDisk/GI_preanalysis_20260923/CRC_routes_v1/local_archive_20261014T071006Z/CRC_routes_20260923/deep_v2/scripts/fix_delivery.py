@@ -1,0 +1,11 @@
+﻿from pathlib import Path
+p=Path(r'C:\Users\31937\CRC_routes_20260923\deep_v2\scripts\build_delivery.py')
+s=p.read_text(encoding='utf-8')
+s=s.replace("def heading(text):para(text,'h1');md.append('')", "def heading(text):para(text,'h1');md[-1]='## '+text;md.append('')")
+s=s.replace("def sub(text):para(text,'h2')", "def sub(text):para(text,'h2');md[-1]='### '+text")
+s=s.replace("    md.append('\\n'+'\\n'.join('| '+' | '.join(str(x).replace('<br/>','；') for x in r)+' |' for r in rows)+'\\n')", "    mr=['| '+' | '.join(str(x).replace('<br/>','；') for x in r)+' |' for r in rows]\n    mr.insert(1,'|'+'|'.join(['---']*len(rows[0]))+'|')\n    md.append('\\n'+'\\n'.join(mr)+'\\n')")
+s=s.replace('1.48×10⁻⁴','1.48e-4').replace('3.12×10⁻⁶','3.12e-6').replace('单位为log2 CPM','单位为log2(CPM+1)')
+s=s.replace('降为+0.016，P=0.972；','降为+0.016，P=0.972、全基因组FDR=0.99975；')
+s=s.replace('差值+1.251；全基因组FDR','差值+1.251；P=3.12e-6；全基因组FDR')
+s=s.replace('差值−0.032；FDR','差值−0.032；P=0.170；全基因组FDR').replace('差值−0.165；FDR','差值−0.165；P=0.225；全基因组FDR').replace('差值+0.041；FDR','差值+0.041；P=0.235；全基因组FDR')
+p.write_text(s,encoding='utf-8')

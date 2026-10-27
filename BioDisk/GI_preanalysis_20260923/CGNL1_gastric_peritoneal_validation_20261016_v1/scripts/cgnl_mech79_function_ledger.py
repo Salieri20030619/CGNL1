@@ -1,0 +1,7 @@
+from pathlib import Path
+import json,datetime
+O=Path.cwd()/'mechanism_investigation_v2';pars=json.loads((O/'literature/CGNL1_FUNCTION_CONTEXT_78.json').read_text(encoding='utf-8'))
+for i in [3,4,5,6]:
+ if i<len(pars):print(i,pars[i])
+ledger=json.loads((O/'results/MECHANISM_EVIDENCE_LEDGER_v3.json').read_text(encoding='utf-8'));ledger.append({'id':'MEC-09','source':'PMC10202830,Results andFigure10','specificity':'CGN–ZO1–NM2B tightjunctionscaffolding/stiffness phenotypes mustnot automaticallybeassignedtoCGNL1. CGNL1-specificstrongerexperiment usesEph4adherensjunctioncontinuity;MDCKCGNL1KO phenotypesweak/contextdependent.','implication':'Ifmechanicalhypothesisadvanced,measureCGNL1proteinlocalizationandadherensjunctionarchitecturewithindefinedgastric/mesothelialmodel; genericRNAjunctionscoreorRhoexpressioncannotreadoutthismechanism.','status':'knownnonGCfunction; diseasebridgeunverified; notnewmechanismbyitself'})
+(O/'results/MECHANISM_EVIDENCE_LEDGER_v4.json').write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf-8');p=O/'STATUS.json';s=json.loads(p.read_text(encoding='utf-8'));s.update(utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),last_goal_turn_classification='progress: completedtranscriptreferenceofficialMD5/headeraudit;CGNversusCGNL1mechanicalphenotypesdistinguishedandledgerupdated',mechanism_ledger='results/MECHANISM_EVIDENCE_LEDGER_v4.json');p.write_text(json.dumps(s,ensure_ascii=False,indent=2),encoding='utf-8')

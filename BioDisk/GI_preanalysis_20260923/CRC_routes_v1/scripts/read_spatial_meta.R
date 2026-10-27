@@ -1,0 +1,2 @@
+O<-'/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923/CRC_routes_v1';m<-readRDS(file.path(O,'metadata/visium_meta_after_qc.rds'));cat('CLASS',class(m),'DIM',dim(m),'\n');print(names(m));print(as.data.frame(head(m,2)));m$cell_id<-rownames(m);write.table(m,gzfile(file.path(O,'results/spatial_author_metadata.tsv.gz')),sep='\t',quote=FALSE,row.names=FALSE)
+for(n in names(m)){if(length(unique(m[[n]]))<80){cat('\nFIELD',n,'\n');print(table(m[[n]],useNA='ifany'))}}

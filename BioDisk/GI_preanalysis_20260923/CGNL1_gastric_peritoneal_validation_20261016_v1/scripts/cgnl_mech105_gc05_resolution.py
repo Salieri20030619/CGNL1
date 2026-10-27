@@ -1,0 +1,6 @@
+from pathlib import Path
+import pandas as pd,json,gzip
+O=Path.cwd()/'mechanism_investigation_v2';B=O.parent.parent;meta=pd.read_csv(B/'01_metadata/GSE314812_sample_design.tsv',sep='\t');paired=pd.read_csv(B/'01_metadata/GSE314812_paired_design.tsv',sep='\t');measure=pd.read_csv(O.parent/'processed/bulk_sample_measurements.tsv',sep='\t');out={'unique_donor_labels':sorted(meta.donor_label.unique().tolist()),'unique_base_patients':sorted(meta.patient.unique().tolist()),'GC05_metadata':meta[meta.patient=='GC05'].to_dict(orient='records'),'paired_columns':list(paired.columns),'GC05_pair_records':paired[paired.astype(str).apply(lambda c:c.str.contains('GC05')).any(axis=1)].to_dict(orient='records'),'paired_all':paired.to_dict(orient='records'),'GC05_measurements':measure[measure.astype(str).apply(lambda c:c.str.contains('GC05')).any(axis=1)].to_dict(orient='records')}
+for p in [B/'03_processed/GC314812_TMM_logCPM.tsv.gz',O.parent/'raw/GSE314812_author_counts.download']:
+ with gzip.open(p,'rt',encoding='utf-8') as f:out[p.name+'_columns']=f.readline().strip().split('\t')
+(O/'metadata/GC05_PAIR_RESOLUTION_105.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(out,ensure_ascii=False,indent=2)[:16000])

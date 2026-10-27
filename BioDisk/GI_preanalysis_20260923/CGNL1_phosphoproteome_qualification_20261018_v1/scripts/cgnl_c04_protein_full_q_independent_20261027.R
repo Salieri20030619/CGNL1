@@ -1,0 +1,17 @@
+library(jsonlite)
+args<-commandArgs(trailingOnly=TRUE);stopifnot(length(args)==1)
+w<-args[1];a<-file.path(w,'joint_identification')
+spec<-fromJSON(file.path(w,'FULL_SCOPE_SPEC_BEFORE_NEW_RESULTS.json'))
+manifest<-fromJSON(file.path(a,'INPUT_MANIFEST.json'))
+stopifnot(isTRUE(manifest$complete24scope),nrow(manifest$inputs)==24,setequal(manifest$inputs$file,spec$files$name))
+x<-read.delim(gzfile(file.path(a,'PSM_QVALUES.tsv.gz')),check.names=FALSE,stringsAsFactors=FALSE)
+stopifnot(setequal(unique(x$file),spec$files$name),!anyDuplicated(paste(x$file,x$scan,x$charge)),all(is.finite(x$e_value)),all(x$e_value>=0))
+o<-order(x$e_value);d<-as.logical(x$is_decoy[o]);score<-x$e_value[o]
+ends<-which(!duplicated(score,fromLast=TRUE));dc<-cumsum(d)[ends];tc<-cumsum(!d)[ends]
+fdr<-pmin(1,(dc+1)/pmax(tc,1));q<-rev(cummin(rev(fdr)));recalculated<-rep(q,diff(c(0,ends)))
+error<-max(abs(recalculated-x$q_fullscope[o]));stopifnot(error<1e-12)
+r<-fromJSON(file.path(a,'RESULTS.json'));pass<-!as.logical(x$is_decoy)&!as.logical(x$is_contaminant)&x$q_fullscope<=.01
+stopifnot(nrow(x)==r$PSMs,sum(!as.logical(x$is_decoy))==r$targets,sum(as.logical(x$is_decoy))==r$decoys,sum(pass)==r$passing_noncontaminant_PSMs)
+result<-list(pass=TRUE,files=24,rows=nrow(x),max_q_error=error,passing_noncontaminant_PSMs=sum(pass),protein_FDR_not_established=TRUE,protein_quantification_pending=TRUE,new_biological_tests=0)
+write_json(result,file.path(a,'INDEPENDENT_R_PSM_QA.json'),auto_unbox=TRUE,pretty=TRUE,digits=17)
+cat(toJSON(result,auto_unbox=TRUE,digits=17),'\n')

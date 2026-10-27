@@ -1,0 +1,11 @@
+from pathlib import Path
+import json,datetime
+O=Path.cwd()/'mechanism_investigation_v2';jobs=[]
+for p in Path('/proc').iterdir():
+ if p.name.isdigit():
+  try:
+   args=(p/'cmdline').read_bytes().split(b'\0');names=[a.decode('utf-8') for a in args if a.startswith(str(O.parent/'scripts').encode()) and b'cgnl_mech' in a]
+   if names:jobs.append({'pid':int(p.name),'script':names[0],'starttime':(p/'stat').read_text().split()[21]})
+  except (FileNotFoundError,PermissionError):pass
+now=datetime.datetime.now(datetime.timezone.utc).isoformat();(O/'metadata/RUNTIME_CHECKPOINT_48.json').write_text(json.dumps({'utc':now,'live_jobs':jobs},indent=2),encoding='utf-8')
+p=O/'STATUS.json';s=json.loads(p.read_text(encoding='utf-8'));s.update(utc=now,last_goal_turn_classification='progress: isolatedsalmon1.10.3installed,officialGENCODE47referenceacquisitionstarted,dependency-gatedindex/quantification/tissuesourcecontrollerslaunched');s['runtime_checkpoint']='metadata/RUNTIME_CHECKPOINT_48.json';s['automatic_controllers']={'index':'cgnl_mech45b_index_when_ready.py verifiesauthorMD5thenbuildsdecoyindex8threads','DRA_quantification':'cgnl_mech46_quantify_when_ready.py requiresindexandENAmd5verifiedreadpairs;serial8threadquantification','tissue_source':'cgnl_mech47_tissue_when_ready.py requirescompleteGSE308231downloadreceipt','monitor_interval_seconds':900,'limitation':'controllerscheckoutputsandreceipts; scientificinterpretationandfinalQAstillrequireinspection'};s['next_actions']=['Respect15minpersistentmonitorinterval; no repeatedagent-levelpolling of live downloads','Inspectroutecohortcompletedfiles/schema whendownloadreceiptready; do nottreat66tissues as66donors','Onquant/indexcompletion verifyexit markers,mapping/strandQC,reference IDs,CGNL1isoform aggregation and rawreadintegrity','Onsourcecompletion assessindependent tissueCGNL1sourceprofile and negative/ambiguousgates','Onlyestablishmechanismmainline whenGC-specificsource/stateandfunctionalconnectionareadequate; currentevidenceinsufficient'];p.write_text(json.dumps(s,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'live_jobs':jobs,'installed':json.loads((O/'metadata/QUANTIFIER_INSTALL.json').read_text()).get('version')}))

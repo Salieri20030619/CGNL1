@@ -1,0 +1,32 @@
+B <- '/mnt/BioDisk/wangmingyuan/GI_preanalysis_20260923'
+V <- file.path(B,'GC_validation_v2')
+O <- file.path(V,'04_results','FABP4_audit'); dir.create(O,recursive=TRUE,showWarnings=FALSE)
+writeLines(c('Post-hoc audit prompted by FABP4 sensitivity; not independent validation.', 'Reuse original genome-wide FDR for gene discovery; no selected-gene re-correction.', 'OLS FABP4 sensitivity family: five composition models; primary OLS model descriptive comparison.', 'Correlation family: four FABP4-versus-proxy paired-change tests.', 'Adipocyte program model: one audit endpoint; individual markers use original genome-wide FDR.', 'No cell-level inference, no universal prevalence or causal claims.'),file.path(O,'ANALYSIS_PLAN.txt'))
+x <- read.delim(gzfile(file.path(B,'03_processed','GC314812_TMM_logCPM.tsv.gz')),check.names=FALSE)
+m <- read.delim(file.path(B,'04_results','GC_bulk','paired_sample_qc.tsv'),check.names=FALSE)
+E <- as.matrix(x[,m$sample]); sy <- x$symbol; sy[is.na(sy)] <- ''
+stopifnot(sum(sy=='FABP4')==1, nrow(m)==34, length(unique(m$patient))==17, all(table(m$patient)==2))
+m$patient <- factor(m$patient); m$site <- factor(m$site,levels=c('GCPT','GCPM')); m$preservation <- factor(m[['preservation method']])
+sets <- list(adipocyte=c('ADIPOQ','PLIN1','CIDEC','CIDEA','LEP'),myeloid=c('CSF1R','CD68','C1QB','AIF1','CD163','LYZ'),epithelial=c('EPCAM','KRT8','KRT18','KRT19'),stroma=c('COL1A1','COL1A2','COL3A1','DCN','LUM','FAP','PDGFRA'))
+for(n in names(sets)) {stopifnot(all(sets[[n]] %in% sy));m[[n]] <- colMeans(E[sy %in% sets[[n]],,drop=FALSE])}
+m$FABP4 <- as.numeric(E[sy=='FABP4',]); for(g in sets$adipocyte) m[[g]] <- as.numeric(E[sy==g,])
+calc <- function(out='FABP4',extra=NULL,dat=m){fit<-lm(as.formula(paste(out,'~ patient + preservation + site',if(length(extra))paste('+',paste(extra,collapse='+'))else '')),data=dat); z<-coef(summary(fit))['siteGCPM',]; ci<-confint(fit,'siteGCPM');c(effect=unname(z[1]),SE=unname(z[2]),P=unname(z[4]),df=df.residual(fit),lower=ci[1],upper=ci[2])}
+models <- list(adipocyte='adipocyte',myeloid='myeloid',epithelial='epithelial',stroma='stroma',adipocyte_myeloid=c('adipocyte','myeloid'))
+a <- do.call(rbind,lapply(names(models),function(k)data.frame(model=k,t(calc(extra=models[[k]])))))
+a$FDR_BH_5_sensitivity_models<-p.adjust(a$P,'BH')
+write.table(a,file.path(O,'FABP4_composition_models.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+base<-rbind(data.frame(endpoint='FABP4',t(calc())),data.frame(endpoint='adipocyte_proxy',t(calc(out='adipocyte'))))
+write.table(base,file.path(O,'OLS_primary_and_adipocyte.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+id<-levels(m$patient); genes<-c('FABP4',names(sets),sets$adipocyte)
+d<-data.frame(patient=id,sapply(genes,function(g)sapply(id,function(p)m[m$patient==p & m$site=='GCPM',g]-m[m$patient==p & m$site=='GCPT',g])),check.names=FALSE)
+write.table(d,file.path(O,'patient_paired_differences.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+co<-do.call(rbind,lapply(names(sets),function(k){z<-cor.test(d$FABP4,d[[k]],method='spearman',exact=FALSE);data.frame(proxy=k,rho=unname(z$estimate),P=z$p.value,n=17)}));co$FDR_BH_4_correlations<-p.adjust(co$P,'BH');write.table(co,file.path(O,'FABP4_proxy_correlations.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+su<-do.call(rbind,lapply(genes,function(g)data.frame(feature=g,positive=sum(d[[g]]>0),negative=sum(d[[g]]<0),zero=sum(d[[g]]==0),median_delta=median(d[[g]]),mean_delta=mean(d[[g]]))))
+write.table(su,file.path(O,'patient_consistency.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+de<-read.delim(file.path(B,'04_results','GC_bulk','integrated_sensitivity_gene_table.tsv'),check.names=FALSE);sel<-de[de$symbol %in% c('FABP4',sets$adipocyte,'CD36','LPL','FABP5'),];write.table(sel,file.path(O,'original_genomewide_DE_selected.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+loo<-do.call(rbind,lapply(id,function(p)data.frame(omitted=p,t(calc(dat=droplevels(m[m$patient!=p,]))))));write.table(loo,file.path(O,'FABP4_leave_one_patient.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+write.table(m,file.path(O,'sample_values.tsv'),sep='\t',quote=FALSE,row.names=FALSE)
+writeLines(capture.output(sessionInfo()),file.path(O,'sessionInfo.txt'))
+writeLines('exit_code=0; n_patients=17; n_tissues=34; all_assertions_passed',file.path(O,'COMPLETE.txt'))
+print(sel[,c('symbol','logFC','P.Value','adj.P.Val','positive_pairs','negative_pairs')]); print(base);print(a);print(co);print(su)
+

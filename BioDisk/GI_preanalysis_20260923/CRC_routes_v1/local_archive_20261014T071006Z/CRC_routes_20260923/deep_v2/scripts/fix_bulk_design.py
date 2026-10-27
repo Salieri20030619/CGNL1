@@ -1,0 +1,2 @@
+﻿from pathlib import Path
+p=Path(r'C:\Users\31937\CRC_routes_20260923\deep_v2\scripts\prepare_bulk.py');s=p.read_text(encoding='utf-8-sig');s=s.replace("site='PT' if 'primary' in title.lower() else ('LM' if 'liver' in title.lower() else 'NC')","tissue=re.search(r'!Sample_characteristics_ch1 = tissue: (.+)',c).group(1).strip();site='PT' if tissue=='primary colorectal cancer' else ('LM' if tissue=='metastatic colorectal cancer to the liver' else 'NC');assert site!='NC' or tissue=='normal-looking surrounding colonic epithelium'");p.write_text(s,encoding='utf-8')

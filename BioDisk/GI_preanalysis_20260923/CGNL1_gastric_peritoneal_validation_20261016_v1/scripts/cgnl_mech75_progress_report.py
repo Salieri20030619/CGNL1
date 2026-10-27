@@ -1,0 +1,30 @@
+from pathlib import Path
+import os
+os.environ.update(OPENBLAS_NUM_THREADS='2',OMP_NUM_THREADS='2')
+import json,datetime,html,base64,hashlib
+import pandas as pd,numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+O=Path.cwd()/'mechanism_investigation_v2';R=O/'report';now=datetime.datetime.now(datetime.timezone.utc).isoformat()
+for f in ['KO_NUMERICAL_QA.json','EXPOSURE_NUMERICAL_QA.json','IDENTITY_COMPARATOR_QA.json','INTRINSIC_ARRAY_QA.json','AUTHOR_FPKM_RECONSTRUCTION_CROSSCHECK.json']:assert json.loads((O/'results'/f).read_text())['all_pass']
+x=pd.read_csv(O/'results/GSE223165_identity_comparator_scores.tsv',sep='\t');fig,ax=plt.subplots(figsize=(8.4,4.5),layout='constrained');labels=['CGNL1','Mesothelial identity','Junction program','Mesenchymal program'];measures=['CGNL1','mesothelial_identity','junction','mesenchymal'];rng=np.random.default_rng(20261016)
+for i,k in enumerate(measures):
+ v=x.pivot(index='donor',columns='condition',values=k);d=(v[['ASC1','ASC2','ASC3']].mean(1)-v.control).dropna();assert len(d)==7;ax.scatter(i+rng.uniform(-.1,.1,len(d)),d,s=35,color='#167c8b' if i==0 else '#7b8f9b');ax.plot([i-.2,i+.2],[d.mean()]*2,color='black',lw=2)
+ax.axhline(0,color='#b4bdc4',lw=1);ax.set_xticks(range(4),labels,fontsize=9);ax.set_ylabel('Within-donor difference in log2(FPKM + 1) score');ax.set_title('Human mesothelial cells: ovarian ascites exposure (7 donors)');ax.spines[['top','right']].set_visible(False);fig.savefig(R/'ascites_identity_comparison.png',dpi=170);plt.close(fig)
+def table(df):return '<div class="table">'+df.to_html(index=False,border=0,na_rep='不可评估',float_format=lambda v:f'{v:.5g}')+'</div>'
+target=pd.read_csv(O/'results/GSE223165_reconstructedFPKM_target_contrasts.tsv',sep='\t');target=target[['contrast','n_independent_mesothelial_donors','mean_log2FPKM1_difference','positive','negative','primary_signedrank_P','primary_FDR_two_target_contrasts']];target.columns=['对比','独立供者数','平均差（log2FPKM+1）','升高','降低','配对P','两项比较FDR']
+identity=pd.read_csv(O/'results/GSE223165_identity_comparator_tests.tsv',sep='\t');identity=identity[['measure','exposure','n_donors','mean_difference','P','FDR']]
+array=pd.read_csv(O/'results/GSE53276_contrasts.tsv',sep='\t');array=array[['probe','contrast','mean_ratio','high_present_arrays','parental_present_arrays']];array.columns=['探针','对比','原始强度均值比','高播散组检出/2','亲本组检出/2']
+image=base64.b64encode((R/'ascites_identity_comparison.png').read_bytes()).decode()
+body=f'''<h1>CGNL1胃癌腹膜播散：机制调查阶段更新</h1><p class="meta">{now} UTC · 阶段报告，机制主线尚未确立 · 原始数据与完整日志保留在sgs10</p>
+<div class="verdict"><b>当前判断：</b>已建立的组织关联与间皮来源线索值得保留，但新增数据尚未建立CGNL1特异驱动机制。卵巢癌腹水刺激使间皮细胞CGNL1下降，但其幅度与间皮身份标志的整体下降相近。胃癌来源间皮细胞原始测序、胃癌组织来源及转移部位比较仍在获取／处理。</div>
+<h2>腹水刺激导致CGNL1下降，尚未显示超出间皮身份变化的特异性</h2><p>GSE223165包含10位间皮供者的条件培养基配对，其中7位还接受同样3份卵巢癌腹水刺激。7位供者的每种腹水处理均降低CGNL1。将3份腹水在同供者内平均后，差值为−1.1297 log2(FPKM+1)，配对P=0.015625、FDR=0.03125；因仅7位独立供者，仍属探索性。41个文库或21次腹水暴露不代表41或21位独立供者。</p>{table(target)}
+<p>相对5个间皮身份标志的差值为−0.0288，P=0.6875；相对UPK3B/LRRN4的差值P=1。当前数据未显示CGNL1独立于身份标志的特异下降；这不是等效性检验，也不能证明CGNL1没有功能。条件培养基使连接分数下降、间质分数上升，但CGNL1本身未达名义显著。身份比较是结果已知后的探索性分析，4项相对身份检验和6项程序检验分别校正。</p><img src="data:image/png;base64,{image}" alt="7位供者的腹水刺激表达变化"><p class="caption">每点为一位间皮供者，黑线为平均值；各程序为固定基因集合的平均log2(FPKM+1)。来源是卵巢癌刺激，不能作为胃癌特异验证。</p><details><summary>查看身份与程序完整统计</summary>{table(identity)}</details>
+<h2>敲除数据支持谨慎区分RNA变化与蛋白功能</h2><p>GSE228955包含犬MDCKII细胞的WT、CGNL1单敲、CGN单敲及双敲。每种敲除对应一个克隆，因此当前按描述性效应处理。CGNL1敲除后，其平均CPM从9.739降至2.342；CAMSAP3、MYH9、MYH10的RNA变化较小。不能以RNA不变否定其蛋白定位作用，也不能把RNA评分当作力学或GTPase活性。</p><p>原始敲除研究显示屏障表型依赖模型，稳定敲除并未增加3 kDa dextran通透性；敲低与敲除的部分表型不一致。现阶段不采用“CGNL1下降必然导致屏障破坏”的单向机制链。<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10417749/">原始功能研究</a>。</p>
+<h2>胃癌细胞系的大倍数受探针与检出限制</h2><p>GSE53276的225817_at探针显示60As6／HSC-60均值比12.04，但两组的MAS5判定均为Absent；Luc衍生比较为1.62。另一探针1569847_at方向不一致。两个探针均有CGNL1及两个LOC的多基因注释，尚未完成序列级特异性核定。多注释本身不等于已证实交叉杂交，但该数据不能作为干净的CGNL1特异验证。8张芯片来自同一亲本选择谱系，不是8位患者；检测P值不是差异表达P值。</p>{table(array)}
+<h2>创新性需要超出既有表达模块和通用间皮转化故事</h2><p>2016年研究已把CGNL1列入来源于58As9Luc／HSC-58上调基因的腹膜播散相关模块；原图及补充图已核对。模块与临床腹膜转移的关联并非CGNL1单基因检验，功能干预聚焦DDR2。该细胞模型也不是GSE53276的60As6／HSC-60。不能声称首次发现CGNL1与胃癌腹膜播散的表达联系。<a href="https://www.nature.com/articles/srep22371">2016年研究</a>。</p><p>HPA胃癌肿瘤细胞注释中，两种抗体各有少量低／中等染色，多数未检出；队列不合并，且没有腹膜状态信息。它不能证明肿瘤细胞一概不表达，也不能建立腹膜机制。<a href="https://www.proteinatlas.org/ENSG00000128849-CGNL1/cancer/stomach+cancer">HPA原始注释</a>。</p>
+<h2>下一步只推进能够区分竞争解释的验证</h2><ol><li>3位胃癌患者来源间皮细胞、4种处理的原始RNA-seq：按供者配对，考察CGNL1与身份变化；不把12个文库作为12位患者。</li><li>GSE308231的原发／腹膜病灶单细胞：采用排除CGNL1的身份规则检查细胞来源，保留两种QC门槛和模糊身份。</li><li>GSE237876转移部位比较：使用hg19匹配的转录本映射；按患者及部位汇总，只将组织完整的配对作为主要描述。腹膜病例预期仅5位。</li></ol><p>若上述数据仍只支持细胞身份伴随变化，不应将CGNL1包装成机制主角。连接定位、张力耦合和跨间皮迁移需有各自直接读出；RNA阴性不等于功能阴性，RNA关联也不等于功能已证实。推荐机制主线前，还需审查胃癌场景中的细胞来源与疾病关系、目标特异干预／救援证据及与既有工作的区别。</p>
+<h2>完整性与记录</h2><p>卵巢癌刺激数据的部分FTP文件损坏已排除。完整作者样本FPKM经官方HTTP恢复后，与计数重建矩阵的58,735×41个数值逐项一致，最大误差约5×10⁻⁹。统计复核通过。DRA原始读段和参考序列需通过官方MD5才会进入分析；部分下载不用于结论。</p><p>完整记录目录：<code>{html.escape(str(O))}</code>。研究目标保持进行，本报告不代表最终机制审核通过。</p>'''
+css='body{font-family:"Microsoft YaHei",Arial,sans-serif;margin:0;background:#eef3f5;color:#20363e;line-height:1.8}main{max-width:1120px;margin:28px auto;background:white;padding:38px 48px}h1{color:#154857;font-size:28px}h2{font-size:21px;color:#176b77;margin-top:30px}.meta,.caption{font-size:13px;color:#59717a}.verdict{background:#eef6f3;border-left:5px solid #318575;padding:20px}.table{overflow:auto}table{border-collapse:collapse;font-size:13px;min-width:90%}td,th{padding:8px;border-bottom:1px solid #dbe4e8;text-align:left}th{background:#eef5f6}img{max-width:100%}code{overflow-wrap:anywhere;font-size:12px}a{color:#176b88}details{margin:15px 0} '
+doc='<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>CGNL1机制调查阶段更新</title><style>'+css+'</style><main>'+body+'</main></html>';p=R/'CGNL1_mechanism_progress_20261016.html';p.write_text(doc,encoding='utf-8');assert '\ufffd' not in doc;print(json.dumps({'file':str(p),'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}))
